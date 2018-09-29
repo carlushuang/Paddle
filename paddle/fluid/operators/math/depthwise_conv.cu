@@ -36,16 +36,16 @@ __inline__ __device__ T warpReduceSum(T val) {
 #endif
 }
 __forceinline__ __device__ unsigned lane_id() {
-  unsigned ret;
-  asm volatile("mov.u32 %0, %laneid;" : "=r"(ret));
-  return ret;
+  return __lane_id();
 }
 
+#if 0
 __forceinline__ __device__ unsigned warp_id() {
   unsigned ret;
   asm volatile("mov.u32 %0, %warpid;" : "=r"(ret));
   return ret;
 }
+#endif
 
 #define ARG_DEFINE_KernelDepthwiseConv                                         \
   const T *const input_data, const T *const filter_data, const int batch_size, \
