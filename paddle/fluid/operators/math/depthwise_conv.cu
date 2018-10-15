@@ -457,7 +457,7 @@ class DepthwiseConvFunctor<platform::CUDADeviceContext, T> {
           stride_height == stride_width && stride_height == c_stride &&      \
           (ksize_height == ksize_width && ksize_height == c_filter ||        \
            c_filter == -1)) {                                                \
-    hipLaunchKernelGGL((KernelDepthwiseConvSp<T, c_filter_multiplier, c_stride>), \
+    hipLaunchKernelGGL((KernelDepthwiseConvSp<T, c_filter_multiplier, c_stride, c_filter>), \
         dim3(grid), dim3(threads), 0, context.stream(), \
         input_data, filter_data, batch_size, output_channels, output_height, \
         output_width, input_channels, input_height, input_width,             \
