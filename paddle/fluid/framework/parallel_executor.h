@@ -31,6 +31,9 @@ limitations under the License. */
 #if defined(PADDLE_WITH_CUDA) && !defined(_WIN32)
 #include "paddle/fluid/platform/nccl_helper.h"
 #endif
+#if defined(PADDLE_WITH_HIP) && !defined(_WIN32)
+#include "paddle/fluid/platform/rccl_helper.h"
+#endif
 
 namespace paddle {
 namespace framework {
@@ -78,6 +81,9 @@ class ParallelExecutor {
   ParallelExecutorPrivate *member_;
 #if defined(PADDLE_WITH_CUDA) && !defined(_WIN32)
   std::unique_ptr<ncclUniqueId> local_nccl_id_;
+#endif
+#if defined(PADDLE_WITH_HIP) && !defined(_WIN32)
+  std::unique_ptr<rcclUniqueId> local_rccl_id_;
 #endif
 };
 

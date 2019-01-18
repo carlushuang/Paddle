@@ -123,7 +123,7 @@ std::unique_ptr<ir::Graph> ParallelExecutorPrivate::PrepareGCAndRefCnts(
       continue;
     }
     std::unique_ptr<GarbageCollector> gc;
-#ifdef PADDLE_WITH_CUDA
+#if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
     if (platform::is_gpu_place(place)) {
       if (IsFastEagerDeletionModeEnabled()) {
         gc.reset(new UnsafeFastGPUGarbageCollector(
@@ -142,7 +142,7 @@ std::unique_ptr<ir::Graph> ParallelExecutorPrivate::PrepareGCAndRefCnts(
       } else {
         PADDLE_THROW("Unsupported place for garbage collection");
       }
-#ifdef PADDLE_WITH_CUDA
+#if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
     }
 #endif
 
@@ -235,7 +235,7 @@ ParallelExecutor::ParallelExecutor(
 
   if (member_->use_cuda_) {
 // Bcast Parameters to all GPUs
-#if defined(PADDLE_WITH_CUDA) && !defined(_WIN32)
+#if (defined(PADDLE_WITH_CUDA) && !defined(_WIN32))
     ncclUniqueId *nccl_id = nullptr;
     // gen_nccl_id operator can broadcast the ncclUniqueId for nccl2 collective
     // distributed training
@@ -253,6 +253,25 @@ ParallelExecutor::ParallelExecutor(
 
     member_->nccl_ctxs_.reset(new platform::NCCLContextMap(
         member_->places_, nccl_id, build_strategy.num_trainers_,
+        build_strategy.trainer_id_));
+#elif (defined(PADDLE_WITH_HIP) && !defined(_WIN32))
+    rcclUniqueId *rccl_id = nullptr;
+    // gen_nccl_id operator can broadcast the ncclUniqueId for nccl2 collective
+    // distributed training
+    auto *rccl_id_var = scope->FindVar(NCCL_ID_VARNAME);
+    if (rccl_id_var != nullptr) {
+      rccl_id = rccl_id_var->GetMutable<rcclUniqueId>();
+    }
+    if (build_strategy.enable_parallel_graph_ && member_->nranks_ > 1UL) {
+      if (rccl_id == nullptr) {
+        local_rccl_id_.reset(new rcclUniqueId());
+        platform::dynload::rcclGetUniqueId(local_rccl_id_.get());
+        rccl_id = local_rccl_id_.get();
+      }
+    }
+
+    member_->nccl_ctxs_.reset(new platform::NCCLContextMap(
+        member_->places_, rccl_id, build_strategy.num_trainers_,
         build_strategy.trainer_id_));
 #else
     PADDLE_THROW("Not compiled with CUDA");
