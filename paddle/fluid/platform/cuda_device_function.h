@@ -51,50 +51,48 @@ static __forceinline__ __device__ T CudaShuffleDownSync(unsigned mask, T val,
 #endif
 }
 
-static __forceinline__ __device__ float CudaShuffleSync(unsigned mask, float val, int src_line,
-                                             int width = 32) {
-  return __shfl(val, src_line, width);
+// CUDA 9.0 have native compatible float16 shfl_down
+#if CUDA_VERSION < 9000 && !defined(PADDLE_WITH_HIP)
+template <>
+__forceinline__ __device__ float16 CudaShuffleDownSync(unsigned mask,
+                                                       float16 val, int delta,
+                                                       int width) {
+  return float16(
+      __shfl_down(static_cast<half>(val), static_cast<unsigned>(delta), width));
 }
-
-static __forceinline__ __device__ int CudaShuffleDownSync(unsigned mask, int val,
+#elif defined(PADDLE_WITH_HIP)
+template <>
+__forceinline__ __device__ float16 CudaShuffleDownSync(unsigned mask, float16 val,
                                                  int delta, int width) {
-  return __shfl_down(val, delta, width);
+  return (float16)__shfl_down((float)val, delta, width);
 }
-
-static __forceinline__ __device__ int CudaShuffleSync(unsigned mask, int val, int src_line,
-                                             int width) {
-  return __shfl(val, src_line, width);
+#else
+template <>
+__forceinline__ __device__ float16 CudaShuffleDownSync(unsigned mask,
+                                                       float16 val, int delta,
+                                                       int width) {
+  return float16(__shfl_down_sync(mask, static_cast<half>(val),
+                                  static_cast<unsigned>(delta), width));
 }
-
-static __forceinline__ __device__ paddle::platform::float16 CudaShuffleDownSync(unsigned mask, paddle::platform::float16 val,
-                                                 int delta, int width) {
-  return (float)__shfl_down((float)val, delta, width);
-}
-
-static __forceinline__ __device__ paddle::platform::float16 CudaShuffleSync(unsigned mask, paddle::platform::float16 val, int src_line,
-                                             int width) {
-  return (float)__shfl((float)val, src_line, width);
-}
-
-static __forceinline__ __device__ double CudaShuffleDownSync(unsigned mask, double val,
-                                                 int delta, int width) {
-  return (float)__shfl_down((float)val, delta, width);
-}
-
-static __forceinline__ __device__ double CudaShuffleSync(unsigned mask, double val, int src_line,
-                                             int width) {
-  return (float)__shfl((float)val, src_line, width);
-}
+#endif
 
 template <typename T>
 __forceinline__ __device__ T CudaShuffleSync(unsigned mask, T val, int src_line,
                                              int width = 32) {
-#if CUDA_VERSION < 9000
+#if CUDA_VERSION < 9000 || defined(PADDLE_WITH_HIP)
   return __shfl(val, src_line, width);
 #else
   return __shfl_sync(mask, val, src_line, width);
 #endif
 }
+
+#ifdef PADDLE_WITH_HIP
+template <>
+__forceinline__ __device__ float16 CudaShuffleSync(unsigned mask, float16 val, int src_line,
+                                             int width ) {
+  return (float16)__shfl((float)val, src_line, width);
+}
+#endif
 
 template <typename T>
 HOSTDEVICE T Infinity() {
