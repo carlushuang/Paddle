@@ -507,7 +507,9 @@ class SoftmaxWithCrossEntropyGradCUDAKernel : public framework::OpKernel<T> {
 
 namespace ops = paddle::operators;
 REGISTER_OP_CUDA_KERNEL(
-    softmax_with_cross_entropy, ops::SoftmaxWithCrossEntropyCUDAKernel<float>);
+    softmax_with_cross_entropy, ops::SoftmaxWithCrossEntropyCUDAKernel<float>,
+    ops::SoftmaxWithCrossEntropyCUDAKernel<paddle::platform::float16>);
 REGISTER_OP_CUDA_KERNEL(
     softmax_with_cross_entropy_grad,
-    ops::SoftmaxWithCrossEntropyGradCUDAKernel<float>);
+    ops::SoftmaxWithCrossEntropyGradCUDAKernel<float>,
+    ops::SoftmaxWithCrossEntropyGradCUDAKernel<paddle::platform::float16>);

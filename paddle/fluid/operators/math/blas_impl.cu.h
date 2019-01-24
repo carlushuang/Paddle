@@ -104,7 +104,6 @@ struct CUBlas<double> {
   }
 };
 
-#if 0
 template <>
 struct CUBlas<platform::float16> {
   using float16 = platform::float16;
@@ -114,18 +113,28 @@ struct CUBlas<platform::float16> {
                    const float16 *alpha, const float16 *A, int lda,
                    const float16 *B, int ldb, const float16 *beta, float16 *C,
                    int ldc) {
+#ifdef PADDLE_WITH_CUDA
+    PADDLE_ENFORCE(
+        platform::dynload::cublasHgemm(handle, transa, transb, m, n, k,
+                                       reinterpret_cast<const __half *>(alpha),
+                                       reinterpret_cast<const __half *>(A), lda,
+                                       reinterpret_cast<const __half *>(B), ldb,
+                                       reinterpret_cast<const __half *>(beta),
+                                       reinterpret_cast<__half *>(C), ldc));
+#else
     PADDLE_ENFORCE(
         platform::dynload::hipblasHgemm(handle, transa, transb, m, n, k,
                                        reinterpret_cast<const hipblasHalf *>(alpha),
                                        reinterpret_cast<const hipblasHalf *>(A), lda,
                                        reinterpret_cast<const hipblasHalf *>(B), ldb,
                                        reinterpret_cast<const hipblasHalf *>(beta),
-                                       reinterpret_cast<const hipblasHalf *>(C), ldc));
+                                       reinterpret_cast<hipblasHalf *>(C), ldc));
+#endif
   }
 
-  static void GEMM_STRIDED_BATCH(cublasHandle_t handle,
-                                 cublasOperation_t transa,
-                                 cublasOperation_t transb, int m, int n, int k,
+  static void GEMM_STRIDED_BATCH(hipblasHandle_t handle,
+                                 hipblasOperation_t transa,
+                                 hipblasOperation_t transb, int m, int n, int k,
                                  const float16 *alpha, const float16 *A,
                                  int lda, long long int strideA,  // NOLINT
                                  const float16 *B,                // NOLINT
@@ -133,6 +142,7 @@ struct CUBlas<platform::float16> {
                                  const float16 *beta, float16 *C, int ldc,
                                  long long int strideC,  // NOLINT
                                  int batchCount) {
+#ifdef PADDLE_WITH_CUDA
 #if CUDA_VERSION >= 8000
     PADDLE_ENFORCE(platform::dynload::cublasHgemmStridedBatched(
         handle, transa, transb, m, n, k,
@@ -144,18 +154,28 @@ struct CUBlas<platform::float16> {
 #else
     PADDLE_THROW("HgemmStridedBatched is not supported on cuda <= 7.5");
 #endif
+#else // PADDLE_WITH_CUDA
+    PADDLE_ENFORCE(platform::dynload::hipblasHgemmStridedBatched(
+        handle, transa, transb, m, n, k,
+        reinterpret_cast<const hipblasHalf *>(alpha),
+        reinterpret_cast<const hipblasHalf *>(A), lda, strideA,
+        reinterpret_cast<const hipblasHalf *>(B), ldb, strideB,
+        reinterpret_cast<const hipblasHalf *>(beta), reinterpret_cast<hipblasHalf *>(C),
+        ldc, strideC, batchCount));
+#endif
   }
 
   // NOTES: GEMM_EX can use Tensor Core to accelerate matrix multiply.
   // https://docs.nvidia.com/cuda/cublas/index.html#cublassetmathmode
   template <typename... ARGS>
   static void GEMM_EX(platform::CUDADeviceContext *dev_ctx,
-                      cublasOperation_t transa, cublasOperation_t transb, int m,
+                      hipblasOperation_t transa, hipblasOperation_t transb, int m,
                       int n, int k, const void *alpha, const void *A,
-                      cudaDataType_t Atype, int lda, const void *B,
-                      cudaDataType_t Btype, int ldb, const void *beta, void *C,
-                      cudaDataType_t Ctype, int ldc,
-                      cudaDataType_t computeType) {
+                      hipblasDatatype_t Atype, int lda, const void *B,
+                      hipblasDatatype_t Btype, int ldb, const void *beta, void *C,
+                      hipblasDatatype_t Ctype, int ldc,
+                      hipblasDatatype_t computeType) {
+#ifdef PADDLE_WITH_CUDA
 #if CUDA_VERSION >= 8000
     cublasGemmAlgo_t algo = CUBLAS_GEMM_DFALT;
 #if CUDA_VERSION >= 9000
@@ -175,9 +195,16 @@ struct CUBlas<platform::float16> {
 #else
     PADDLE_THROW("cublasGemmEx is supported on cuda >= 8.0");
 #endif
+#else
+    hipblasGemmAlgo_t algo = HIPBLAS_GEMM_DEFAULT;
+    dev_ctx->HipblasCall([&](hipblasHandle_t handle) {
+      PADDLE_ENFORCE(platform::dynload::hipblasGemmEx(
+          handle, transa, transb, m, n, k, alpha, A, Atype, lda, B, Btype, ldb,
+          beta, C, Ctype, ldc, computeType, algo));
+    });
+#endif
   }
 };
-#endif
 
 template <>
 template <typename T>

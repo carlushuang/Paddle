@@ -77,7 +77,9 @@ extern void *hipblas_dso_handle;
   __macro(hipblasSgemmBatched);            \
   __macro(hipblasDgemmBatched);            \
   __macro(hipblasSgemmStridedBatched);     \
-  __macro(hipblasDgemmStridedBatched);
+  __macro(hipblasDgemmStridedBatched);     \
+  __macro(hipblasHgemmStridedBatched);     \
+  __macro(hipblasGemmEx);
 
 HIPBLAS_BLAS_ROUTINE_EACH(DECLARE_DYNAMIC_LOAD_HIPBLAS_WRAP);
 
